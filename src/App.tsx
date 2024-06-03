@@ -4,7 +4,7 @@ import "./App.css";
 import io from "socket.io-client";
 import "bootstrap/dist/css/bootstrap.min.css";
 
-const socket = io("https://veiled-spiky-elephant.glitch.me"); // Update with your backend URL
+const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app"); // Update with your backend URL
 
 interface Message {
   text: string;
