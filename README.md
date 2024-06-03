@@ -5,7 +5,7 @@ Alows users to join chat rooms, send messages.
 
 ## Live Demo
 
-You can check out the live demo of the application here: [Chat Application Demo](https://kanban-board-react-vite-ts-redux-bs.netlify.app/)
+You can check out the live demo of the application here: [Chat Application Demo](https://chat-app-ui-react-vite-ts-socket.vercel.app/)
 
 ## Prerequisites
 
