@@ -17,7 +17,7 @@ function App(): JSX.Element {
   const { roomId } = useParams<{ roomId: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState<string>("");
-  const scrollableDiv = useRef(null);
+  const scrollableDiv = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (roomId) {
