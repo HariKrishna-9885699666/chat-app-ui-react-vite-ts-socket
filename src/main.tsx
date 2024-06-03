@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import ReactDOM from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import NavTab from './NavTab';
 import App from './App';
+import FloatingIcon from './FloatingIcon';
 
 const Home = () => {
   const [roomId, setRoomId] = useState('');
@@ -16,10 +18,10 @@ const Home = () => {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="container">
+      <NavTab />
       <div className="row justify-content-center">
         <div className="col-md-6">
-          <h1 className="text-center mb-4">Welcome to Chat App</h1>
           <form onSubmit={handleSubmit}>
             <div className="input-group mb-3">
               <input
@@ -36,6 +38,7 @@ const Home = () => {
           </form>
         </div>
       </div>
+      <FloatingIcon />
     </div>
   );
 };

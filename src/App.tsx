@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import "./App.css";
+import NavTab from './NavTab';
 import io from "socket.io-client";
 import "bootstrap/dist/css/bootstrap.min.css";
+import FloatingIcon from './FloatingIcon';
 
 const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app"); // Update with your backend URL
 
@@ -65,7 +67,8 @@ function App(): JSX.Element {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="container">
+      <NavTab />
       <div className="row">
         <div className="col-md-8 offset-md-2">
           <div className="card">
@@ -104,6 +107,7 @@ function App(): JSX.Element {
           </div>
         </div>
       </div>
+      <FloatingIcon />
     </div>
   );
 }
