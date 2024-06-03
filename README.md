@@ -22,3 +22,11 @@ You can check out the live demo of the application here: [Chat Application Demo]
    npm install
    npm run dev
 
+# Usage
+## Joining a Chat Room
+- Open the Chat Application in a browser tab.
+- Type a room ID (think of it as the username of the chat person). For example, use "john".
+## Chatting with Another User
+- Open the Chat Application in another browser tab or window.
+- Type a different room ID. For example, use "patrick".
+- Now both "john" and "patrick" can chat together in real-time.
