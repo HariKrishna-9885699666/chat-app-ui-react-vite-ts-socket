@@ -1,7 +1,7 @@
 # Chat Application with React + Vite, Socket.IO and Express
 
 This is a simple chat application using React + Vite, Socket.IO, and TypeScript. 
-Alows users to join chat rooms, send messages.
+Allows users to join chat rooms, send messages, and broadcast typing statuses in real-time.
 
 ## Live Demo
 
