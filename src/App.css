@@ -50,3 +50,10 @@
   padding: 10px;
   background-color: #f8f9fa;
 }
+
+.typing-status {
+  text-align: left;
+  font-size: x-small;
+  color: brown;
+  font-style: italic;
+}

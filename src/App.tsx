@@ -15,11 +15,19 @@ interface Message {
   timestamp: string;
 }
 
+interface TypingStatus {
+  room: string;
+  user: string;
+  typing: boolean;
+}
+
 function App(): JSX.Element {
   const { roomId } = useParams<{ roomId: string }>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState<string>("");
+  const [typingStatus, setTypingStatus] = useState<string | null>(null);
   const scrollableDiv = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (roomId) {
@@ -31,8 +39,24 @@ function App(): JSX.Element {
       scrollToBottom();
     });
 
+    socket.on("typing", (data: TypingStatus) => {
+      console.log('data', data)
+      if (data.typing && roomId !== data.room) {
+        setTypingStatus(`${data.room} is typing...`);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+          setTypingStatus(null);
+        }, 3000);
+      } else {
+        setTypingStatus(null);
+      }
+    });
+
     return () => {
       socket.off("message");
+      socket.off("typing");
     };
   }, [roomId]);
 
@@ -52,18 +76,24 @@ function App(): JSX.Element {
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" && messageInput.trim() !== "") {
-      // Check for Enter and non-empty input
       sendMessage();
+    }
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageInput(event.target.value);
+    if (roomId) {
+      socket.emit("typing", { room: roomId, user: "You", typing: true });
     }
   };
 
   const scrollToBottom = () => {
     setTimeout(() => {
-        const scrollableElement = scrollableDiv.current;
-        if (scrollableElement) {
-          scrollableElement.scrollTop = scrollableElement.scrollHeight;
-        }
-      }, 100);
+      const scrollableElement = scrollableDiv.current;
+      if (scrollableElement) {
+        scrollableElement.scrollTop = scrollableElement.scrollHeight;
+      }
+    }, 100);
   };
 
   return (
@@ -73,13 +103,13 @@ function App(): JSX.Element {
         <div className="col-md-8 offset-md-2">
           <div className="card">
             <div className="card-body">
-              <div className="input-group mb-3">
+              <div className="input-group">
                 <input
                   type="text"
                   className="form-control"
                   placeholder="Type your message..."
                   value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
+                  onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
                 />
                 <div className="input-group-append">
@@ -93,7 +123,8 @@ function App(): JSX.Element {
                   </button>
                 </div>
               </div>
-              <div className="chat-window cw" ref={scrollableDiv}>
+              {typingStatus && <div className="typing-status">{typingStatus}</div>}
+              <div className="chat-window cw mt-3" ref={scrollableDiv}>
                 {messages.map((msg, index) => (
                   <h6 key={index}>
                     <span className="badge bg-secondary">
