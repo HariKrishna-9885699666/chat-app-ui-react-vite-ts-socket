@@ -13,7 +13,7 @@ interface Message {
   room: string;
   sender: string;
   timestamp: string;
-  image?: string; // Base64 encoded image
+  image?: string; 
 }
 
 interface TypingStatus {
@@ -33,14 +33,11 @@ function App(): JSX.Element {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Ensure we're listening to the correct room
     if (roomId) {
       socket.emit("join", roomId);
     }
 
-    // Listen for messages, including those with images
     socket.on("message", (data: Message) => {
-      console.log("Received message:", data); // Debug log
       setMessages((prevMessages) => [...prevMessages, data]);
       scrollToBottom();
     });
@@ -75,7 +72,6 @@ function App(): JSX.Element {
         image: selectedImage || undefined
       };
       
-      console.log("Sending message:", newMessage); // Debug log
       socket.emit("message", newMessage);
       
       setMessageInput("");
@@ -105,7 +101,6 @@ function App(): JSX.Element {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        // Ensure the image is base64 encoded
         const base64Image = reader.result as string;
         setSelectedImage(base64Image);
       };
@@ -121,7 +116,7 @@ function App(): JSX.Element {
   };
 
   const deleteChatHistory = () => {
-    setMessages([]); // Clear local messages
+    setMessages([]); 
     if (roomId) {
       socket.emit('clear_history', roomId);
     }
@@ -176,14 +171,10 @@ function App(): JSX.Element {
                 </div>
               </div>
               
-              {/* Image Preview */}
+              {/* Removed image preview */}
               {selectedImage && (
-                <div className="mb-2">
-                  <img 
-                    src={selectedImage} 
-                    alt="Selected" 
-                    style={{ maxWidth: '200px', maxHeight: '200px' }} 
-                  />
+                <div className="mb-2 text-muted">
+                  Image ready to be sent
                 </div>
               )}
 
@@ -202,16 +193,11 @@ function App(): JSX.Element {
                     </h6>
                     {msg.image && (
                       <div className="image-container">
-                        <img 
-                          src={msg.image} 
-                          alt="Message" 
-                          style={{ maxWidth: '300px', maxHeight: '300px' }} 
-                        />
                         <button 
-                          className="btn btn-sm btn-outline-primary ml-2"
+                          className="btn btn-sm btn-outline-primary"
                           onClick={() => handleDownloadImage(msg.image!, msg.timestamp)}
                         >
-                          Download
+                          Download Image
                         </button>
                       </div>
                     )}
