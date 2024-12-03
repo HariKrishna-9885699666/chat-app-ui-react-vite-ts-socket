@@ -16,6 +16,7 @@ interface Message {
   image?: string; 
 }
 
+// Used in socket event
 interface TypingStatus {
   room: string;
   user: string;
@@ -40,11 +41,18 @@ function App(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Scroll to bottom function
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      const scrollableElement = scrollableDiv.current;
+      if (scrollableElement) {
+        scrollableElement.scrollTop = scrollableElement.scrollHeight;
+      }
+    }, 100);
+  };
+
   useEffect(() => {
-    // Check user's role and chat access when joining the room
     const checkChatAccess = () => {
-      // This would typically involve a backend call to verify access
-      // For this example, we'll simulate it
       socket.emit('check_chat_access', { 
         roomId, 
         userId: getCurrentUserId() 
@@ -57,7 +65,6 @@ function App(): JSX.Element {
       chatAccess?: ChatAccess 
     }) => {
       if (!result.allowed) {
-        // Redirect if not allowed
         navigate('/unauthorized');
         return;
       }
@@ -67,17 +74,29 @@ function App(): JSX.Element {
         setChatAccess(result.chatAccess);
       }
 
-      // Join the room if access is granted
       if (roomId) {
         socket.emit("join", roomId);
       }
     });
 
     socket.on("message", (data: Message) => {
-      // Only add messages from allowed participants
       if (isMessageAllowed(data)) {
         setMessages((prevMessages) => [...prevMessages, data]);
         scrollToBottom();
+      }
+    });
+
+    socket.on("typing", (data: TypingStatus) => {
+      if (data.typing && roomId !== data.room) {
+        setTypingStatus(`${data.room} is typing...`);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+          setTypingStatus(null);
+        }, 3000);
+      } else {
+        setTypingStatus(null);
       }
     });
 
@@ -87,6 +106,7 @@ function App(): JSX.Element {
     return () => {
       socket.off("message");
       socket.off('chat_access_result');
+      socket.off("typing");
     };
   }, [roomId, navigate]);
 
@@ -94,7 +114,6 @@ function App(): JSX.Element {
   const isMessageAllowed = (message: Message): boolean => {
     if (!chatAccess) return false;
     
-    // Only allow messages from owner or the specific allowed guest
     return message.sender === chatAccess.owner || 
            chatAccess.allowedUsers.includes(message.sender);
   };
@@ -102,7 +121,6 @@ function App(): JSX.Element {
   const sendMessage = (): void => {
     if (!chatAccess || !roomId) return;
 
-    // Additional check to prevent unauthorized sending
     const currentUserId = getCurrentUserId();
     const isAuthorizedSender = 
       (userRole === 'owner') || 
@@ -133,13 +151,55 @@ function App(): JSX.Element {
     scrollToBottom();
   };
 
+  // Handle input change and typing status
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageInput(event.target.value);
+    if (roomId) {
+      socket.emit("typing", { room: roomId, user: getCurrentUserId(), typing: true });
+    }
+  };
+
+  // Handle key down for sending message
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && (messageInput.trim() !== "" || selectedImage)) {
+      sendMessage();
+    }
+  };
+
   // Placeholder function to get current user ID
   const getCurrentUserId = (): string => {
     // In a real app, this would come from authentication
     return userRole === 'owner' ? 'owner1' : 'guest1';
   };
 
-  // Rest of the previous component methods remain the same...
+  // Handle image upload
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Image = reader.result as string;
+        setSelectedImage(base64Image);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle image download
+  const handleDownloadImage = (imageData: string, timestamp: string) => {
+    const link = document.createElement('a');
+    link.href = imageData;
+    link.download = `image_${timestamp}.png`;
+    link.click();
+  };
+
+  // Delete chat history
+  const deleteChatHistory = () => {
+    setMessages([]); 
+    if (roomId) {
+      socket.emit('clear_history', roomId);
+    }
+  };
 
   return (
     <div className="container">
@@ -161,12 +221,75 @@ function App(): JSX.Element {
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
                     />
-                    {/* Rest of the input group remains the same */}
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      accept="image/*" 
+                      onChange={handleImageUpload} 
+                      style={{ display: 'none' }} 
+                    />
+                    <div className="input-group-append">
+                      <button
+                        className="btn btn-secondary mr-2"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        📷 Upload
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={sendMessage}
+                      >
+                        Send
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
               
-              {/* Rest of the render method remains the same */}
+              {/* Image preview */}
+              {selectedImage && (
+                <div className="mb-2 text-muted">
+                  Image ready to be sent
+                </div>
+              )}
+
+              {/* Typing Status */}
+              {typingStatus && <div className="typing-status">{typingStatus}</div>}
+              
+              {/* Chat Window */}
+              <div className="chat-window cw mt-3" ref={scrollableDiv}>
+                {messages.map((msg, index) => (
+                  <div key={index} className="message-container">
+                    <h6>
+                      <span className="badge bg-secondary">
+                        {msg.room} @{msg.timestamp}{" "}
+                      </span>
+                      &nbsp;{msg.text}
+                    </h6>
+                    {msg.image && (
+                      <div className="image-container">
+                        <button 
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => handleDownloadImage(msg.image!, msg.timestamp)}
+                        >
+                          Download Image
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Delete Chat History Button */}
+              <div className="mt-3">
+                <button 
+                  className="btn btn-danger" 
+                  onClick={deleteChatHistory}
+                >
+                  Clear Chat History
+                </button>
+              </div>
             </div>
           </div>
         </div>
