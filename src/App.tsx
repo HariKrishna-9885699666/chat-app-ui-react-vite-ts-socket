@@ -72,27 +72,31 @@ function App(): JSX.Element {
 
 
   const sendMessage = (): void => {
-    if (roomId && (messageInput.trim() !== "" || selectedImage)) {
-      const newMessage: Message = {
-        text: messageInput,
-        room: roomId,
-        sender: isAdmin ? "Hari" : guestName || "Guest",
-        timestamp: new Date().toLocaleString(),
-        image: selectedImage || undefined,
-      };
-      if (!isAdmin && roomId !== "hari1209") {
-        alert("Guests can only chat with Hari.");
-        return;
-      }
-      socket.emit("message", newMessage);
-      setMessageInput("");
-      setSelectedImage(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''; // Reset file input
-      }
-      scrollToBottom();
-    }
+  if (messageInput.trim() === "" && !selectedImage) {
+    return;
+  }
+
+  const message: Message = {
+    text: messageInput,
+    room: isAdmin ? roomId : "hari1209", // Admin sends to roomId, guests always send to "hari1209"
+    sender: isAdmin ? "Hari" : guestName || "Guest",
+    timestamp: new Date().toLocaleString(),
+    image: selectedImage || undefined,
   };
+
+  // Emit the message
+  socket.emit("message", message);
+
+  // Clear input and reset file selection
+  setMessageInput("");
+  setSelectedImage(null);
+  if (fileInputRef.current) {
+    fileInputRef.current.value = ""; // Reset file input
+  }
+
+  scrollToBottom();
+};
+
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" && (messageInput.trim() !== "" || selectedImage)) {
