@@ -13,7 +13,7 @@ interface Message {
   room: string;
   sender: string;
   timestamp: string;
-  image?: string; // Added image support
+  image?: string; // Base64 encoded image
 }
 
 interface TypingStatus {
@@ -33,11 +33,14 @@ function App(): JSX.Element {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Ensure we're listening to the correct room
     if (roomId) {
       socket.emit("join", roomId);
     }
 
+    // Listen for messages, including those with images
     socket.on("message", (data: Message) => {
+      console.log("Received message:", data); // Debug log
       setMessages((prevMessages) => [...prevMessages, data]);
       scrollToBottom();
     });
@@ -71,7 +74,10 @@ function App(): JSX.Element {
         timestamp: new Date().toLocaleString(),
         image: selectedImage || undefined
       };
+      
+      console.log("Sending message:", newMessage); // Debug log
       socket.emit("message", newMessage);
+      
       setMessageInput("");
       setSelectedImage(null);
       if (fileInputRef.current) {
@@ -99,7 +105,9 @@ function App(): JSX.Element {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSelectedImage(reader.result as string);
+        // Ensure the image is base64 encoded
+        const base64Image = reader.result as string;
+        setSelectedImage(base64Image);
       };
       reader.readAsDataURL(file);
     }
@@ -114,7 +122,6 @@ function App(): JSX.Element {
 
   const deleteChatHistory = () => {
     setMessages([]); // Clear local messages
-    // Optionally, emit an event to the server to clear room history
     if (roomId) {
       socket.emit('clear_history', roomId);
     }
