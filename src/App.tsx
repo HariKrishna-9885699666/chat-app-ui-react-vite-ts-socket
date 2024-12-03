@@ -16,6 +16,7 @@ interface Message {
   image?: string; 
 }
 
+// Kept for potential future socket event use
 interface TypingStatus {
   room: string;
   user: string;
@@ -30,6 +31,8 @@ interface ChatAccess {
 function App(): JSX.Element {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
+  
+  // State declarations
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState<string>("");
   const [typingStatus, setTypingStatus] = useState<string | null>(null);
@@ -38,9 +41,17 @@ function App(): JSX.Element {
   const [chatAccess, setChatAccess] = useState<ChatAccess | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [showJoinOptions, setShowJoinOptions] = useState<boolean>(true);
+  
+  // Refs
   const scrollableDiv = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Utility function to get current user ID
+  const getCurrentUserId = (): string => {
+    // In a real app, this would come from authentication
+    return userRole === 'owner' ? 'owner1' : 'guest1';
+  };
 
   // Scroll to bottom function
   const scrollToBottom = () => {
@@ -50,6 +61,68 @@ function App(): JSX.Element {
         scrollableElement.scrollTop = scrollableElement.scrollHeight;
       }
     }, 100);
+  };
+
+  // Input change handler
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageInput(event.target.value);
+    if (roomId) {
+      socket.emit("typing", { room: roomId, user: getCurrentUserId(), typing: true });
+    }
+  };
+
+  // Key down handler for sending message
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && (messageInput.trim() !== "" || selectedImage)) {
+      sendMessage();
+    }
+  };
+
+  // Send message function
+  const sendMessage = (): void => {
+    if (!chatAccess || !roomId) return;
+
+    const currentUserId = getCurrentUserId();
+    const isAuthorizedSender = 
+      (userRole === 'owner') || 
+      chatAccess.allowedUsers.includes(currentUserId);
+
+    if (!isAuthorizedSender) {
+      alert("You are not authorized to send messages in this chat.");
+      return;
+    }
+
+    if (messageInput.trim() !== "" || selectedImage) {
+      const newMessage: Message = {
+        text: messageInput,
+        room: roomId,
+        sender: currentUserId,
+        timestamp: new Date().toLocaleString(),
+        image: selectedImage || undefined
+      };
+      
+      socket.emit("message", newMessage);
+      
+      setMessageInput("");
+      setSelectedImage(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''; // Reset file input
+      }
+    }
+    scrollToBottom();
+  };
+
+  // Image upload handler
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Image = reader.result as string;
+        setSelectedImage(base64Image);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   useEffect(() => {
@@ -107,7 +180,12 @@ function App(): JSX.Element {
       }
     });
 
-    // Rest of the socket event listeners remain the same...
+    socket.on("message", (data: Message) => {
+      if (isMessageAllowed(data)) {
+        setMessages((prevMessages) => [...prevMessages, data]);
+        scrollToBottom();
+      }
+    });
 
     // Initial access check
     checkChatAccess();
@@ -115,17 +193,19 @@ function App(): JSX.Element {
     return () => {
       socket.off("message");
       socket.off('chat_access_result');
-      socket.off("typing");
     };
   }, [roomId, navigate, accessToken]);
 
+  // Validate if a message is from an allowed participant
+  const isMessageAllowed = (message: Message): boolean => {
+    if (!chatAccess) return false;
+    
+    return message.sender === chatAccess.owner || 
+           chatAccess.allowedUsers.includes(message.sender);
+  };
+
   // Join Room Handler
   const handleJoinRoom = () => {
-    // Implement your join room logic here
-    // This might involve:
-    // 1. Generating an invite token
-    // 2. Verifying user credentials
-    // 3. Requesting access from the server
     socket.emit('request_room_access', { 
       roomId, 
       userId: getCurrentUserId() 
@@ -147,8 +227,6 @@ function App(): JSX.Element {
     );
   };
 
-  // Rest of the previous component methods remain the same...
-
   return (
     <div className="container">
       <NavTab />
@@ -161,25 +239,56 @@ function App(): JSX.Element {
                 renderJoinOptions()
               ) : (
                 <>
-                  {/* Previous chat interface code */}
+                  {/* Chat Interface */}
                   {(userRole === 'owner' || 
                     (chatAccess && chatAccess.allowedUsers.length > 0)) && (
-                    <>
-                      <div className="input-group mb-3">
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Type your message..."
-                          value={messageInput}
-                          onChange={handleInputChange}
-                          onKeyDown={handleKeyDown}
-                        />
-                        {/* Rest of input group remains the same */}
+                    <div className="input-group mb-3">
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Type your message..."
+                        value={messageInput}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                      />
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        accept="image/*" 
+                        onChange={handleImageUpload} 
+                        style={{ display: 'none' }} 
+                      />
+                      <div className="input-group-append">
+                        <button
+                          className="btn btn-secondary mr-2"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          📷 Upload
+                        </button>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={sendMessage}
+                        >
+                          Send
+                        </button>
                       </div>
-                    </>
+                    </div>
                   )}
                   
-                  {/* Rest of the chat interface */}
+                  {/* Chat Messages */}
+                  <div className="chat-window cw mt-3" ref={scrollableDiv}>
+                    {messages.map((msg, index) => (
+                      <div key={index} className="message-container">
+                        <h6>
+                          <span className="badge bg-secondary">
+                            {msg.room} @{msg.timestamp}{" "}
+                          </span>
+                          &nbsp;{msg.text}
+                        </h6>
+                      </div>
+                    ))}
+                  </div>
                 </>
               )}
             </div>
