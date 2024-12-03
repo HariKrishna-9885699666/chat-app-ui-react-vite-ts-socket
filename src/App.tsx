@@ -1,19 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import "./App.css";
-import NavTab from './NavTab';
+import NavTab from "./NavTab";
 import io from "socket.io-client";
 import "bootstrap/dist/css/bootstrap.min.css";
-import FloatingIcon from './FloatingIcon';
+import FloatingIcon from "./FloatingIcon";
 
-const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app"); 
+const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app");
 
 interface Message {
   text: string;
   room: string;
   sender: string;
   timestamp: string;
-  image?: string; 
+  image?: string;
 }
 
 interface TypingStatus {
@@ -25,7 +25,7 @@ interface TypingStatus {
 function App(): JSX.Element {
   const { roomId } = useParams<{ roomId: string }>();
   const location = useLocation();
-  const [allowChat, setAllowChat] = useState<boolean>(false);
+  const [allowChat, setAllowChat] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState<string>("");
   const [typingStatus, setTypingStatus] = useState<string | null>(null);
@@ -35,6 +35,7 @@ function App(): JSX.Element {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Parse query parameters
     const params = new URLSearchParams(location.search);
     const allowChatParam = params.get("allowChat");
     setAllowChat(allowChatParam === "true");
@@ -53,8 +54,8 @@ function App(): JSX.Element {
     });
 
     socket.on("typing", (data: TypingStatus) => {
-      if (data.typing && roomId !== data.room) {
-        setTypingStatus(`${data.room} is typing...`);
+      if (data.typing && roomId === data.room) {
+        setTypingStatus(`${data.user} is typing...`);
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }
@@ -80,20 +81,20 @@ function App(): JSX.Element {
       room: roomId,
       sender: "You",
       timestamp: new Date().toLocaleString(),
-      image: selectedImage || undefined
+      image: selectedImage || undefined,
     };
-    
+
     socket.emit("message", newMessage);
     setMessageInput("");
     setSelectedImage(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Reset file input
+      fileInputRef.current.value = ""; // Reset file input
     }
     scrollToBottom();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
+    if (event.key === "Enter" && (messageInput.trim() !== "" || selectedImage)) {
       sendMessage();
     }
   };
@@ -118,16 +119,16 @@ function App(): JSX.Element {
   };
 
   const handleDownloadImage = (imageData: string, timestamp: string) => {
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = imageData;
     link.download = `image_${timestamp}.png`;
     link.click();
   };
 
   const deleteChatHistory = () => {
-    setMessages([]); 
+    setMessages([]);
     if (allowChat && roomId) {
-      socket.emit('clear_history', roomId);
+      socket.emit("clear_history", roomId);
     }
   };
 
@@ -141,7 +142,11 @@ function App(): JSX.Element {
   };
 
   if (!allowChat) {
-    return <div className="container"><h2>Chat is not allowed.</h2></div>;
+    return (
+      <div className="container">
+        <h2>Chat is not allowed.</h2>
+      </div>
+    );
   }
 
   return (
@@ -151,8 +156,71 @@ function App(): JSX.Element {
         <div className="col-md-8 offset-md-2">
           <div className="card">
             <div className="card-body">
-              {/* Rest of the chat UI */}
-              ...
+              <div className="input-group mb-3">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Type your message..."
+                  value={messageInput}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ display: "none" }}
+                />
+                <div className="input-group-append">
+                  <button
+                    className="btn btn-secondary mr-2"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    📷 Upload
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={sendMessage}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+              {selectedImage && (
+                <div className="mb-2 text-muted">Image ready to be sent</div>
+              )}
+              {typingStatus && <div className="typing-status">{typingStatus}</div>}
+              <div className="chat-window cw mt-3" ref={scrollableDiv}>
+                {messages.map((msg, index) => (
+                  <div key={index} className="message-container">
+                    <h6>
+                      <span className="badge bg-secondary">
+                        {msg.room} @{msg.timestamp}
+                      </span>
+                      &nbsp;{msg.text}
+                    </h6>
+                    {msg.image && (
+                      <div className="image-container">
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() =>
+                            handleDownloadImage(msg.image!, msg.timestamp)
+                          }
+                        >
+                          Download Image
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3">
+                <button className="btn btn-danger" onClick={deleteChatHistory}>
+                  Clear Chat History
+                </button>
+              </div>
             </div>
           </div>
         </div>
