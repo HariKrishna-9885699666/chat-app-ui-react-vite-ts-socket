@@ -33,70 +33,55 @@ function App(): JSX.Element {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-  if (roomId === "hari1209") {
-    socket.emit("join", roomId);
-  } else {
-    console.error("Invalid room ID. Cannot join the chat.");
-  }
+    if (roomId) {
+      socket.emit("join", roomId);
+    }
 
-  socket.on("message", (data: Message) => {
-    if (data.room === roomId) {
+    socket.on("message", (data: Message) => {
       setMessages((prevMessages) => [...prevMessages, data]);
       scrollToBottom();
-    }
-  });
+    });
 
-  socket.on("typing", (data: TypingStatus) => {
-    if (data.room === roomId && data.typing) {
-      setTypingStatus(`${data.user} is typing...`);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      typingTimeoutRef.current = setTimeout(() => {
+    socket.on("typing", (data: TypingStatus) => {
+      if (data.typing && roomId !== data.room) {
+        setTypingStatus(`${data.room} is typing...`);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+          setTypingStatus(null);
+        }, 3000);
+      } else {
         setTypingStatus(null);
-      }, 3000);
-    } else {
-      setTypingStatus(null);
-    }
-  });
+      }
+    });
 
-  return () => {
-    socket.off("message");
-    socket.off("typing");
-  };
-}, [roomId]);
-
-
- const sendMessage = (): void => {
-  if (roomId === "hari1209" && (messageInput.trim() !== "" || selectedImage)) {
-    const newMessage: Message = {
-      text: messageInput,
-      room: roomId,
-      sender: "You",
-      timestamp: new Date().toLocaleString(),
-      image: selectedImage || undefined,
+    return () => {
+      socket.off("message");
+      socket.off("typing");
     };
+  }, [roomId]);
 
-    socket.emit("message", newMessage);
-
-    setMessageInput("");
-    setSelectedImage(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''; // Reset file input
+  const sendMessage = (): void => {
+    if (roomId && (messageInput.trim() !== "" || selectedImage)) {
+      const newMessage: Message = {
+        text: messageInput,
+        room: roomId,
+        sender: "You",
+        timestamp: new Date().toLocaleString(),
+        image: selectedImage || undefined
+      };
+      
+      socket.emit("message", newMessage);
+      
+      setMessageInput("");
+      setSelectedImage(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''; // Reset file input
+      }
     }
     scrollToBottom();
-  } else {
-    console.error("Invalid room ID. Message not sent.");
-  }
-};
-
-
-const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-  setMessageInput(event.target.value);
-  if (roomId === "hari1209") {
-    socket.emit("typing", { room: roomId, user: "You", typing: true });
-  }
-};
+  };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" && (messageInput.trim() !== "" || selectedImage)) {
@@ -104,7 +89,12 @@ const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     }
   };
 
-
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageInput(event.target.value);
+    if (roomId) {
+      socket.emit("typing", { room: roomId, user: "You", typing: true });
+    }
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
