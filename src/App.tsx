@@ -16,13 +16,6 @@ interface Message {
   image?: string; 
 }
 
-// Kept for potential future socket event use
-interface TypingStatus {
-  room: string;
-  user: string;
-  typing: boolean;
-}
-
 interface ChatAccess {
   owner: string;
   allowedUsers: string[];
@@ -35,7 +28,6 @@ function App(): JSX.Element {
   // State declarations
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState<string>("");
-  const [typingStatus, setTypingStatus] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'guest' | null>(null);
   const [chatAccess, setChatAccess] = useState<ChatAccess | null>(null);
@@ -45,7 +37,6 @@ function App(): JSX.Element {
   // Refs
   const scrollableDiv = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Utility function to get current user ID
   const getCurrentUserId = (): string => {
