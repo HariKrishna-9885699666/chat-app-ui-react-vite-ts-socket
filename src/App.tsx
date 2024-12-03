@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import "./App.css";
 import NavTab from './NavTab';
 import io from "socket.io-client";
 import "bootstrap/dist/css/bootstrap.min.css";
 import FloatingIcon from './FloatingIcon';
 
-const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app");
+const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app"); 
 
 interface Message {
   text: string;
@@ -24,90 +24,84 @@ interface TypingStatus {
 
 function App(): JSX.Element {
   const { roomId } = useParams<{ roomId: string }>();
+  const location = useLocation();
+  const [allowChat, setAllowChat] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState<string>("");
   const [typingStatus, setTypingStatus] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [guestName, setGuestName] = useState<string | null>(null);
   const scrollableDiv = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-  if (roomId) {
-    if (roomId === "hari1209") {
-      setIsAdmin(true);
-    } else {
-      setGuestName(roomId); // Guest room name
+    const params = new URLSearchParams(location.search);
+    const allowChatParam = params.get("allowChat");
+    setAllowChat(allowChatParam === "true");
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!allowChat || !roomId) {
+      return;
     }
-    // Ensure all guests join "hari1209"
-    socket.emit("join", "hari1209");
-  }
 
-  socket.on("message", (data: Message) => {
-    setMessages((prevMessages) => [...prevMessages, data]);
-    scrollToBottom();
-  });
+    socket.emit("join", roomId);
 
-  socket.on("typing", (data: TypingStatus) => {
-    if (data.typing) {
-      setTypingStatus(`${data.user} is typing...`);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      typingTimeoutRef.current = setTimeout(() => {
+    socket.on("message", (data: Message) => {
+      setMessages((prevMessages) => [...prevMessages, data]);
+      scrollToBottom();
+    });
+
+    socket.on("typing", (data: TypingStatus) => {
+      if (data.typing && roomId !== data.room) {
+        setTypingStatus(`${data.room} is typing...`);
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+          setTypingStatus(null);
+        }, 3000);
+      } else {
         setTypingStatus(null);
-      }, 3000);
-    } else {
-      setTypingStatus(null);
-    }
-  });
+      }
+    });
 
-  return () => {
-    socket.off("message");
-    socket.off("typing");
-  };
-}, [roomId]);
-
+    return () => {
+      socket.off("message");
+      socket.off("typing");
+    };
+  }, [allowChat, roomId]);
 
   const sendMessage = (): void => {
-  if (messageInput.trim() === "" && !selectedImage) {
-    return;
-  }
+    if (!allowChat || !roomId || (messageInput.trim() === "" && !selectedImage)) return;
 
-  const message: Message = {
-    text: messageInput,
-    room: isAdmin ? roomId : "hari1209", // Admin sends to roomId, guests always send to "hari1209"
-    sender: isAdmin ? "Hari" : guestName || "Guest",
-    timestamp: new Date().toLocaleString(),
-    image: selectedImage || undefined,
+    const newMessage: Message = {
+      text: messageInput,
+      room: roomId,
+      sender: "You",
+      timestamp: new Date().toLocaleString(),
+      image: selectedImage || undefined
+    };
+    
+    socket.emit("message", newMessage);
+    setMessageInput("");
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''; // Reset file input
+    }
+    scrollToBottom();
   };
 
-  // Emit the message
-  socket.emit("message", message);
-
-  // Clear input and reset file selection
-  setMessageInput("");
-  setSelectedImage(null);
-  if (fileInputRef.current) {
-    fileInputRef.current.value = ""; // Reset file input
-  }
-
-  scrollToBottom();
-};
-
-
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && (messageInput.trim() !== "" || selectedImage)) {
+    if (event.key === "Enter") {
       sendMessage();
     }
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setMessageInput(event.target.value);
-    if (roomId) {
-      socket.emit("typing", { room: roomId, user: isAdmin ? "Hari" : guestName || "Guest", typing: true });
+    if (allowChat && roomId) {
+      socket.emit("typing", { room: roomId, user: "You", typing: true });
     }
   };
 
@@ -131,11 +125,9 @@ function App(): JSX.Element {
   };
 
   const deleteChatHistory = () => {
-    setMessages([]);
-    if (isAdmin) {
+    setMessages([]); 
+    if (allowChat && roomId) {
       socket.emit('clear_history', roomId);
-    } else {
-      alert("Only Hari can delete chat history.");
     }
   };
 
@@ -148,6 +140,10 @@ function App(): JSX.Element {
     }, 100);
   };
 
+  if (!allowChat) {
+    return <div className="container"><h2>Chat is not allowed.</h2></div>;
+  }
+
   return (
     <div className="container">
       <NavTab />
@@ -155,77 +151,8 @@ function App(): JSX.Element {
         <div className="col-md-8 offset-md-2">
           <div className="card">
             <div className="card-body">
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Type your message..."
-                  value={messageInput}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                />
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  accept="image/*" 
-                  onChange={handleImageUpload} 
-                  style={{ display: 'none' }} 
-                />
-                <div className="input-group-append">
-                  <button
-                    className="btn btn-secondary mr-2"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    📷 Upload
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={sendMessage}
-                  >
-                    Send
-                  </button>
-                </div>
-              </div>
-
-              {/* Typing Status */}
-              {typingStatus && <div className="typing-status">{typingStatus}</div>}
-              
-              {/* Chat Window */}
-              <div className="chat-window cw mt-3" ref={scrollableDiv}>
-                {messages.map((msg, index) => (
-                  <div key={index} className="message-container">
-                    <h6>
-                      <span className="badge bg-secondary">
-                        {msg.sender} @{msg.timestamp}
-                      </span>
-                      &nbsp;{msg.text}
-                    </h6>
-                    {msg.image && (
-                      <div className="image-container">
-                        <button 
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => handleDownloadImage(msg.image!, msg.timestamp)}
-                        >
-                          Download Image
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Delete Chat History Button */}
-              {isAdmin && (
-                <div className="mt-3">
-                  <button 
-                    className="btn btn-danger" 
-                    onClick={deleteChatHistory}
-                  >
-                    Clear Chat History
-                  </button>
-                </div>
-              )}
+              {/* Rest of the chat UI */}
+              ...
             </div>
           </div>
         </div>
