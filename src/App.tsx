@@ -35,32 +35,37 @@ function App(): JSX.Element {
   useEffect(() => {
   if (roomId === "hari1209") {
     socket.emit("join", roomId);
+  } else {
+    console.error("Invalid room ID. Cannot join the chat.");
+  }
 
-    socket.on("message", (data: Message) => {
+  socket.on("message", (data: Message) => {
+    if (data.room === roomId) {
       setMessages((prevMessages) => [...prevMessages, data]);
       scrollToBottom();
-    });
+    }
+  });
 
-    socket.on("typing", (data: TypingStatus) => {
-      if (data.typing && roomId === data.room) {
-        setTypingStatus(`${data.user} is typing...`);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          setTypingStatus(null);
-        }, 3000);
-      } else {
-        setTypingStatus(null);
+  socket.on("typing", (data: TypingStatus) => {
+    if (data.room === roomId && data.typing) {
+      setTypingStatus(`${data.user} is typing...`);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
-    });
-  }
+      typingTimeoutRef.current = setTimeout(() => {
+        setTypingStatus(null);
+      }, 3000);
+    } else {
+      setTypingStatus(null);
+    }
+  });
 
   return () => {
     socket.off("message");
     socket.off("typing");
   };
 }, [roomId]);
+
 
  const sendMessage = (): void => {
   if (roomId === "hari1209" && (messageInput.trim() !== "" || selectedImage)) {
@@ -69,19 +74,22 @@ function App(): JSX.Element {
       room: roomId,
       sender: "You",
       timestamp: new Date().toLocaleString(),
-      image: selectedImage || undefined
+      image: selectedImage || undefined,
     };
-    
+
     socket.emit("message", newMessage);
-    
+
     setMessageInput("");
     setSelectedImage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = ''; // Reset file input
     }
+    scrollToBottom();
+  } else {
+    console.error("Invalid room ID. Message not sent.");
   }
-  scrollToBottom();
 };
+
 
 const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
   setMessageInput(event.target.value);
