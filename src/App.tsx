@@ -35,38 +35,41 @@ function App(): JSX.Element {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (roomId) {
-      setIsAdmin(roomId === "hari1209");
-      if (roomId !== "hari1209") {
-        setGuestName(roomId); // Set guest name
-      }
-      socket.emit("join", roomId);
+  if (roomId) {
+    if (roomId === "hari1209") {
+      setIsAdmin(true);
+    } else {
+      setGuestName(roomId); // Guest room name
     }
+    // Ensure all guests join "hari1209"
+    socket.emit("join", "hari1209");
+  }
 
-    socket.on("message", (data: Message) => {
-      setMessages((prevMessages) => [...prevMessages, data]);
-      scrollToBottom();
-    });
+  socket.on("message", (data: Message) => {
+    setMessages((prevMessages) => [...prevMessages, data]);
+    scrollToBottom();
+  });
 
-    socket.on("typing", (data: TypingStatus) => {
-      if (data.typing && roomId === "hari1209") {
-        setTypingStatus(`${data.user} is typing...`);
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          setTypingStatus(null);
-        }, 3000);
-      } else {
-        setTypingStatus(null);
+  socket.on("typing", (data: TypingStatus) => {
+    if (data.typing) {
+      setTypingStatus(`${data.user} is typing...`);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
-    });
+      typingTimeoutRef.current = setTimeout(() => {
+        setTypingStatus(null);
+      }, 3000);
+    } else {
+      setTypingStatus(null);
+    }
+  });
 
-    return () => {
-      socket.off("message");
-      socket.off("typing");
-    };
-  }, [roomId]);
+  return () => {
+    socket.off("message");
+    socket.off("typing");
+  };
+}, [roomId]);
+
 
   const sendMessage = (): void => {
     if (roomId && (messageInput.trim() !== "" || selectedImage)) {
