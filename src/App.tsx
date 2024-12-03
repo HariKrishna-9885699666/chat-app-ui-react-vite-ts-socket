@@ -6,7 +6,7 @@ import io from "socket.io-client";
 import "bootstrap/dist/css/bootstrap.min.css";
 import FloatingIcon from './FloatingIcon';
 
-const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app"); 
+const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app");
 
 interface Message {
   text: string;
@@ -28,12 +28,18 @@ function App(): JSX.Element {
   const [messageInput, setMessageInput] = useState<string>("");
   const [typingStatus, setTypingStatus] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [guestName, setGuestName] = useState<string | null>(null);
   const scrollableDiv = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (roomId) {
+      setIsAdmin(roomId === "hari1209");
+      if (roomId !== "hari1209") {
+        setGuestName(roomId); // Set guest name
+      }
       socket.emit("join", roomId);
     }
 
@@ -43,8 +49,8 @@ function App(): JSX.Element {
     });
 
     socket.on("typing", (data: TypingStatus) => {
-      if (data.typing && roomId !== data.room) {
-        setTypingStatus(`${data.room} is typing...`);
+      if (data.typing && roomId === "hari1209") {
+        setTypingStatus(`${data.user} is typing...`);
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
         }
@@ -67,20 +73,22 @@ function App(): JSX.Element {
       const newMessage: Message = {
         text: messageInput,
         room: roomId,
-        sender: "You",
+        sender: isAdmin ? "Hari" : guestName || "Guest",
         timestamp: new Date().toLocaleString(),
-        image: selectedImage || undefined
+        image: selectedImage || undefined,
       };
-      
+      if (!isAdmin && roomId !== "hari1209") {
+        alert("Guests can only chat with Hari.");
+        return;
+      }
       socket.emit("message", newMessage);
-      
       setMessageInput("");
       setSelectedImage(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = ''; // Reset file input
       }
+      scrollToBottom();
     }
-    scrollToBottom();
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -92,7 +100,7 @@ function App(): JSX.Element {
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setMessageInput(event.target.value);
     if (roomId) {
-      socket.emit("typing", { room: roomId, user: "You", typing: true });
+      socket.emit("typing", { room: roomId, user: isAdmin ? "Hari" : guestName || "Guest", typing: true });
     }
   };
 
@@ -116,9 +124,11 @@ function App(): JSX.Element {
   };
 
   const deleteChatHistory = () => {
-    setMessages([]); 
-    if (roomId) {
+    setMessages([]);
+    if (isAdmin) {
       socket.emit('clear_history', roomId);
+    } else {
+      alert("Only Hari can delete chat history.");
     }
   };
 
@@ -170,13 +180,6 @@ function App(): JSX.Element {
                   </button>
                 </div>
               </div>
-              
-              {/* Removed image preview */}
-              {selectedImage && (
-                <div className="mb-2 text-muted">
-                  Image ready to be sent
-                </div>
-              )}
 
               {/* Typing Status */}
               {typingStatus && <div className="typing-status">{typingStatus}</div>}
@@ -187,7 +190,7 @@ function App(): JSX.Element {
                   <div key={index} className="message-container">
                     <h6>
                       <span className="badge bg-secondary">
-                        {msg.room} @{msg.timestamp}{" "}
+                        {msg.sender} @{msg.timestamp}
                       </span>
                       &nbsp;{msg.text}
                     </h6>
@@ -206,14 +209,16 @@ function App(): JSX.Element {
               </div>
 
               {/* Delete Chat History Button */}
-              <div className="mt-3">
-                <button 
-                  className="btn btn-danger" 
-                  onClick={deleteChatHistory}
-                >
-                  Clear Chat History
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="mt-3">
+                  <button 
+                    className="btn btn-danger" 
+                    onClick={deleteChatHistory}
+                  >
+                    Clear Chat History
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
