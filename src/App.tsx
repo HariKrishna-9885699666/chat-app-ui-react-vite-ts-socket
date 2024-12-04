@@ -46,14 +46,10 @@ function App(): JSX.Element {
     socket.on("message", (data: Message) => {
       setMessages((prevMessages) => [...prevMessages, data]);
       scrollToBottom();
-      
-      // Update document title when a new message arrives
-      if (data.sender !== "You") {
-        setDocumentTitle("You Got New Message!");
-      }
     });
 
     socket.on("typing", (data: TypingStatus) => {
+      setDocumentTitle("You Got New Message!");
       if (data.typing && roomId !== data.room) {
         setTypingStatus(`${data.room} is typing...`);
         if (typingTimeoutRef.current) {
