@@ -28,9 +28,15 @@ function App(): JSX.Element {
   const [messageInput, setMessageInput] = useState<string>("");
   const [typingStatus, setTypingStatus] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [documentTitle, setDocumentTitle] = useState<string>("Chat Application - Vite + React + TS");
   const scrollableDiv = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Update document title
+    document.title = documentTitle;
+  }, [documentTitle]);
 
   useEffect(() => {
     if (roomId) {
@@ -40,6 +46,11 @@ function App(): JSX.Element {
     socket.on("message", (data: Message) => {
       setMessages((prevMessages) => [...prevMessages, data]);
       scrollToBottom();
+      
+      // Update document title when a new message arrives
+      if (data.sender !== "You") {
+        setDocumentTitle("You Got New Message!");
+      }
     });
 
     socket.on("typing", (data: TypingStatus) => {
@@ -122,6 +133,10 @@ function App(): JSX.Element {
     }
   };
 
+  const resetDocumentTitle = () => {
+    setDocumentTitle("Chat Application - Vite + React + TS");
+  };
+
   const scrollToBottom = () => {
     setTimeout(() => {
       const scrollableElement = scrollableDiv.current;
@@ -171,17 +186,14 @@ function App(): JSX.Element {
                 </div>
               </div>
               
-              {/* Removed image preview */}
               {selectedImage && (
                 <div className="mb-2 text-muted">
                   Image ready to be sent
                 </div>
               )}
 
-              {/* Typing Status */}
               {typingStatus && <div className="typing-status">{typingStatus}</div>}
               
-              {/* Chat Window */}
               <div className="chat-window cw mt-3" ref={scrollableDiv}>
                 {messages.map((msg, index) => (
                   <div key={index} className="message-container">
@@ -205,13 +217,18 @@ function App(): JSX.Element {
                 ))}
               </div>
 
-              {/* Delete Chat History Button */}
-              <div className="mt-3">
+              <div className="mt-3 d-flex justify-content-between">
                 <button 
                   className="btn btn-danger" 
                   onClick={deleteChatHistory}
                 >
                   Clear Chat History
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={resetDocumentTitle}
+                >
+                  Reset Title
                 </button>
               </div>
             </div>
