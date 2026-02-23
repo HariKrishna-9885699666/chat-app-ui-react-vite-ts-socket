@@ -231,7 +231,6 @@ function App(): JSX.Element {
           </div>
         </div>
       </div>
-      /* <FloatingIcon /> */
     </div>
   );
 }
