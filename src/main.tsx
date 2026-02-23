@@ -4,7 +4,6 @@ import ReactDOM from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import NavTab from './NavTab';
 import App from './App';
-import FloatingIcon from './FloatingIcon';
 
 const Home = () => {
   const [roomId, setRoomId] = useState('');
@@ -38,7 +37,6 @@ const Home = () => {
           </form>
         </div>
       </div>
-      <FloatingIcon />
     </div>
   );
 };
