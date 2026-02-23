@@ -4,7 +4,6 @@ import "./App.css";
 import NavTab from './NavTab';
 import io from "socket.io-client";
 import "bootstrap/dist/css/bootstrap.min.css";
-import FloatingIcon from './FloatingIcon';
 
 const socket = io("https://silky-melisa-my-hobbie-3320ee00.koyeb.app"); 
 
